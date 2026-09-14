@@ -1,0 +1,2127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PackGuard — Registro de Evidência de Embalagem</title>
+<style>
+:root{
+  --bg:#0F1215;
+  --panel:#171B1F;
+  --panel-2:#1D2227;
+  --line:#2A3037;
+  --text:#E8EAED;
+  --muted:#8B95A1;
+  --muted-2:#5C6570;
+  --amber:#F5A623;
+  --amber-dim:#3A2E14;
+  --green:#33B26B;
+  --green-dim:#132A1E;
+  --red:#E5484D;
+  --red-dim:#3A1518;
+  --blue:#4F9DDE;
+  --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  --sans: 'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--amber);color:#000;}
+
+/* ---------- login screen ---------- */
+.login-wrap{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.login-box{
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:32px;width:100%;max-width:360px;
+}
+.login-brand{display:flex;align-items:center;gap:10px;margin-bottom:24px;}
+.brand-mark{
+  width:32px;height:32px;border:2px solid var(--amber);border-radius:6px;
+  position:relative;flex-shrink:0;
+}
+.brand-mark::after{
+  content:'';position:absolute;top:50%;left:50%;width:8px;height:8px;
+  background:var(--red);border-radius:50%;transform:translate(-50%,-50%);
+  box-shadow:0 0 6px var(--red);
+}
+.login-brand-text .brand-name{font-weight:700;font-size:16px;}
+.login-brand-text .brand-sub{font-size:10px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.08em;}
+.login-box h1{font-size:16px;margin:0 0 18px 0;font-weight:700;}
+.login-error{
+  background:var(--red-dim);border:1px solid rgba(229,72,77,.4);color:#ffb3b5;
+  padding:9px 12px;border-radius:7px;font-size:12.5px;margin-bottom:14px;display:none;
+}
+.login-error.show{display:block;}
+
+/* ---------- shell ---------- */
+.shell{display:none;min-height:100vh;}
+.shell.show{display:flex;}
+.nav{
+  width:220px;flex-shrink:0;background:var(--panel);
+  border-right:1px solid var(--line);
+  display:flex;flex-direction:column;
+  padding:20px 0;
+}
+.brand{
+  display:flex;align-items:center;gap:10px;
+  padding:0 20px 20px 20px;margin-bottom:8px;
+  border-bottom:1px solid var(--line);
+}
+.brand-name{font-weight:700;font-size:15px;letter-spacing:0.02em;}
+.brand-sub{font-size:10px;color:var(--muted-2);text-transform:uppercase;letter-spacing:0.08em;margin-top:1px;}
+
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 20px;color:var(--muted);text-decoration:none;
+  font-size:13.5px;cursor:pointer;border-left:2px solid transparent;
+  transition:background .12s, color .12s;
+}
+.nav-item:hover{background:var(--panel-2);color:var(--text);}
+.nav-item.active{color:var(--text);background:var(--panel-2);border-left-color:var(--amber);}
+.nav-icon{width:16px;text-align:center;font-size:14px;opacity:.85;}
+
+.nav-user{
+  margin-top:auto;padding:14px 20px;border-top:1px solid var(--line);
+}
+.nav-user-name{font-size:12.5px;font-weight:600;}
+.nav-user-meta{font-size:10.5px;color:var(--muted-2);margin-top:2px;text-transform:uppercase;letter-spacing:.04em;}
+.nav-user-actions{margin-top:8px;}
+.nav-status{font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-top:10px;}
+.cam-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;}
+.cam-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}
+.cam-dot.off{background:var(--red);box-shadow:0 0 5px var(--red);}
+
+.main{flex:1;padding:28px 32px;max-width:1180px;}
+.view{display:none;}
+.view.active{display:block;}
+
+h1{font-size:19px;margin:0 0 4px 0;font-weight:700;letter-spacing:-0.01em;}
+.subtitle{color:var(--muted);font-size:13px;margin:0 0 24px 0;}
+
+.panel{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:20px;
+}
+.grid2{display:grid;grid-template-columns:1.3fr 0.9fr;gap:20px;align-items:start;}
+
+.field-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px;display:block;}
+input[type=text], input[type=number], input[type=password], select{
+  width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+  padding:9px 11px;border-radius:6px;font-size:13.5px;font-family:var(--mono);
+  outline:none;
+}
+input[type=text]:focus, input[type=number]:focus, input[type=password]:focus, select:focus{border-color:var(--amber);}
+input:disabled{opacity:.5;}
+
+.video-wrap{
+  position:relative;background:#000;border-radius:8px;overflow:hidden;
+  aspect-ratio:16/10;border:1px solid var(--line);
+}
+video, canvas.overlay-canvas{width:100%;height:100%;object-fit:cover;display:block;}
+video{display:none;}
+
+.rec-badge{
+  position:absolute;top:12px;left:12px;background:rgba(0,0,0,.55);
+  color:var(--red);font-family:var(--mono);font-size:12px;font-weight:600;
+  padding:5px 9px;border-radius:5px;display:none;align-items:center;gap:6px;
+  border:1px solid rgba(229,72,77,.4);
+}
+.rec-badge.live{display:flex;}
+.rec-dot{width:8px;height:8px;background:var(--red);border-radius:50%;animation:pulse 1.1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+
+.scan-badge{
+  position:absolute;top:12px;left:12px;right:12px;background:rgba(0,0,0,.6);
+  color:var(--blue);font-family:var(--mono);font-size:11.5px;font-weight:600;
+  padding:6px 10px;border-radius:5px;display:none;align-items:center;gap:7px;
+  border:1px solid rgba(79,157,222,.45);
+}
+.scan-badge.show{display:flex;}
+.scan-dot{width:8px;height:8px;background:var(--blue);border-radius:50%;flex-shrink:0;animation:pulse 1.1s infinite;}
+.scan-ocr-note{
+  position:absolute;bottom:12px;left:12px;right:12px;background:rgba(0,0,0,.6);
+  color:var(--muted);font-family:var(--mono);font-size:11px;
+  padding:5px 9px;border-radius:5px;display:none;
+}
+.scan-ocr-note.show{display:block;}
+
+.video-empty{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--muted-2);font-size:13px;gap:8px;text-align:center;padding:20px;
+}
+.video-empty .glyph{font-size:26px;opacity:.5;}
+
+.controls{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+button{
+  font-family:var(--sans);font-size:13px;font-weight:600;border:none;border-radius:7px;
+  padding:10px 16px;cursor:pointer;transition:filter .1s, transform .05s;
+}
+button:active{transform:scale(0.98);}
+button:disabled{opacity:.35;cursor:not-allowed;}
+.btn-primary{background:var(--amber);color:#1a1400;}
+.btn-primary:hover:not(:disabled){filter:brightness(1.08);}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-danger:hover:not(:disabled){filter:brightness(1.1);}
+.btn-ghost{background:var(--panel-2);color:var(--text);border:1px solid var(--line);}
+.btn-ghost:hover:not(:disabled){border-color:var(--muted);}
+.btn-ghost.active{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+.btn-sm{padding:6px 10px;font-size:12px;border-radius:5px;}
+.btn-block{width:100%;}
+
+.side-panel-title{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px 0;font-weight:700;}
+.log-line{
+  font-family:var(--mono);font-size:11.5px;color:var(--muted);padding:6px 0;
+  border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:8px;
+}
+.log-line:last-child{border-bottom:none;}
+.log-time{color:var(--muted-2);flex-shrink:0;}
+
+.serial-row{display:flex;gap:8px;margin-top:12px;}
+.serial-row input{flex:1;}
+
+.hint{font-size:11.5px;color:var(--muted-2);margin-top:8px;line-height:1.5;}
+
+/* ---------- database view ---------- */
+.toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap;}
+.toolbar input, .toolbar select{width:auto;min-width:160px;}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead th{
+  text-align:left;background:var(--panel-2);color:var(--muted);font-weight:600;
+  padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid var(--line);white-space:nowrap;
+}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--panel-2);}
+.mono{font-family:var(--mono);}
+.badge{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;
+  font-size:11px;font-weight:600;
+}
+.badge.ok{background:var(--green-dim);color:var(--green);}
+.badge.attention{background:var(--amber-dim);color:var(--amber);}
+.badge.critical{background:var(--red-dim);color:var(--red);}
+.badge.pending{background:var(--panel-2);color:var(--muted);border:1px solid var(--line);}
+.retention-txt{font-family:var(--mono);font-size:11.5px;}
+.retention-txt.protected{color:var(--red);}
+.retention-txt.soon{color:var(--amber);}
+.actions-cell{display:flex;gap:6px;}
+.empty-row td{text-align:center;color:var(--muted-2);padding:36px 12px;font-size:13px;}
+
+/* ---------- settings / users ---------- */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.set-row{margin-bottom:16px;}
+.set-row .desc{font-size:11.5px;color:var(--muted-2);margin-top:5px;line-height:1.5;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);}
+.toggle-row:last-child{border-bottom:none;}
+.switch{position:relative;width:38px;height:21px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;inset:0;background:var(--panel-2);border:1px solid var(--line);border-radius:20px;cursor:pointer;transition:.15s;}
+.slider::before{content:'';position:absolute;width:15px;height:15px;left:2px;top:2px;background:var(--muted);border-radius:50%;transition:.15s;}
+input:checked + .slider{background:var(--amber-dim);border-color:var(--amber);}
+input:checked + .slider::before{transform:translateX(17px);background:var(--amber);}
+
+/* ---------- classification cards ---------- */
+.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0;}
+.class-card{
+  border:1.5px solid var(--line);background:var(--panel-2);border-radius:8px;
+  padding:14px 8px;text-align:center;cursor:pointer;font-size:12.5px;font-weight:600;
+  transition:border-color .1s, background .1s;
+}
+.class-card .cg{font-size:20px;display:block;margin-bottom:6px;}
+.class-card:hover{border-color:var(--muted);}
+.class-card.selected{border-color:var(--amber);background:var(--amber-dim);}
+.class-card[data-sev=ok].selected{border-color:var(--green);background:var(--green-dim);}
+.class-card[data-sev=critical].selected{border-color:var(--red);background:var(--red-dim);}
+.sev-note{
+  font-size:11.5px;padding:10px 12px;border-radius:7px;margin:14px 0;
+  border:1px solid var(--line);color:var(--muted);
+}
+.sev-note.critical{border-color:var(--red);background:var(--red-dim);color:#ffb3b5;}
+.sev-note.attention{border-color:var(--amber);background:var(--amber-dim);color:#ffd88a;}
+.sev-note.ok{border-color:var(--green);background:var(--green-dim);color:#8fe0b3;}
+#classifyNotes{
+  width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+  padding:9px 11px;border-radius:6px;font-size:13px;font-family:var(--sans);min-height:60px;resize:vertical;
+}
+
+/* ---------- dialogs / toast ---------- */
+.dialog-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:60;padding:20px;
+}
+.dialog-overlay.show{display:flex;}
+.dialog-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;max-width:420px;width:100%;}
+.dialog-box h3{margin:0 0 10px 0;font-size:15px;}
+.dialog-box p{font-size:13px;color:var(--muted);line-height:1.55;margin:0 0 16px 0;}
+.dialog-actions{display:flex;justify-content:flex-end;gap:10px;}
+
+.toast-stack{position:fixed;bottom:20px;right:20px;z-index:80;display:flex;flex-direction:column;gap:8px;}
+.toast{
+  background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);
+  padding:12px 16px;border-radius:8px;font-size:12.5px;max-width:320px;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);animation:slidein .18s ease-out;
+}
+.toast.error{border-left-color:var(--red);}
+.toast.success{border-left-color:var(--green);}
+@keyframes slidein{from{transform:translateX(20px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+.player-video{width:100%;border-radius:8px;background:#000;display:block;}
+.player-meta{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.7;}
+
+.stat-strip{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
+.stat{
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  padding:12px 16px;min-width:120px;
+}
+.stat .n{font-family:var(--mono);font-size:20px;font-weight:700;}
+.stat .l{font-size:10.5px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
+
+@media(max-width:900px){
+  .shell{flex-direction:column;}
+  .nav{width:100%;flex-direction:row;overflow-x:auto;padding:10px;align-items:center;}
+  .brand{border-bottom:none;padding:0 10px;margin:0;}
+  .nav-user, .nav-status{display:none;}
+  .grid2{grid-template-columns:1fr;}
+  .settings-grid{grid-template-columns:1fr;}
+  .main{padding:18px;}
+}
+</style>
+<!-- Leitor de código de barras: ponyfill/polyfill da API nativa BarcodeDetector,
+     usando ZXing-C++ via WebAssembly nos navegadores onde a API nativa não
+     decodifica de verdade (Windows/Linux) — decide sozinho quando usar a
+     versão nativa (macOS/Android) e quando usar o WASM. -->
+<script src="https://cdn.jsdelivr.net/npm/barcode-detector@3/dist/iife/polyfill.min.js"></script>
+<!-- OCR (bônus, só roda uma vez após o código de barras ser lido, pra tentar
+     capturar remetente/destinatário da etiqueta). -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div class="login-wrap" id="loginScreen">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="brand-mark"></div>
+      <div class="login-brand-text">
+        <div class="brand-name">PackGuard</div>
+        <div class="brand-sub">Evidência de Embalagem</div>
+      </div>
+    </div>
+    <h1>Entrar</h1>
+    <div class="login-error" id="loginError"></div>
+    <label class="field-label">Usuário</label>
+    <input type="text" id="loginId" autocomplete="username" placeholder="seu login">
+    <label class="field-label" style="margin-top:12px;">Senha</label>
+    <input type="password" id="loginSenha" autocomplete="current-password" placeholder="••••••••">
+    <button class="btn-primary btn-block" id="btnLogin" style="margin-top:18px;">Entrar</button>
+    <p class="hint" style="text-align:center;">Peça seu acesso a um administrador.</p>
+  </div>
+</div>
+
+<div class="shell" id="appShell">
+  <nav class="nav">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-name">PackGuard</div>
+        <div class="brand-sub">Evidência de Embalagem</div>
+      </div>
+    </div>
+    <div class="nav-item active" data-view="record"><span class="nav-icon">●</span> Gravação</div>
+    <div class="nav-item" data-view="database"><span class="nav-icon">▤</span> Banco de Vídeos</div>
+    <div class="nav-item" data-view="users" id="navUsers" style="display:none;"><span class="nav-icon">◈</span> Usuários</div>
+    <div class="nav-item" data-view="settings"><span class="nav-icon">⚙</span> Configurações</div>
+
+    <div class="nav-user">
+      <div class="nav-user-name" id="navUserName">—</div>
+      <div class="nav-user-meta" id="navUserMeta">—</div>
+      <div class="nav-user-actions">
+        <button class="btn-ghost btn-sm btn-block" id="btnOpenChangePw" style="margin-bottom:6px;">Alterar senha</button>
+        <button class="btn-ghost btn-sm btn-block" id="btnLogout">Sair</button>
+      </div>
+    </div>
+    <div class="nav-status" id="camStatusStrip"><span class="cam-dot off"></span>Câmera inativa</div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ===================== RECORDING VIEW ===================== -->
+    <section class="view active" id="view-record">
+      <h1>Gravação de Embalagem</h1>
+      <p class="subtitle">Insira o número do pacote para liberar a câmera. A gravação começa apenas com o dispositivo confirmado.</p>
+
+      <div class="grid2">
+        <div class="panel">
+          <label class="field-label">Número do pacote</label>
+          <input type="text" id="pkgInput" placeholder="Ex: ORD-163589" autocomplete="off">
+
+          <div class="video-wrap" style="margin-top:14px;">
+            <video id="rawVideo" autoplay muted playsinline></video>
+            <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
+            <div class="video-empty" id="videoEmpty">
+              <span class="glyph">◎</span>
+              <span id="videoEmptyText">Insira o número do pacote e clique em Iniciar para ativar a câmera</span>
+            </div>
+            <div class="rec-badge" id="recBadge"><span class="rec-dot"></span> REC <span id="recTimer">00:00</span></div>
+            <div class="scan-badge" id="scanBadge"><span class="scan-dot"></span> MODO SCAN — aponte a câmera para o código de barras</div>
+            <div class="scan-ocr-note" id="scanOcrNote"></div>
+          </div>
+
+          <div class="controls">
+            <button class="btn-primary" id="btnStart">Iniciar Gravação</button>
+            <button class="btn-danger" id="btnFinish" disabled>Finalizar</button>
+            <button class="btn-ghost" id="btnDiscard" disabled>Descartar</button>
+            <button class="btn-ghost" id="btnScanMode" title="Ativa a câmera em modo de leitura contínua de código de barras">Ativar Modo Scan</button>
+            <button class="btn-ghost" id="btnCycleCamera" title="Alternar entre as câmeras do dispositivo">Trocar câmera</button>
+            <button class="btn-ghost" id="btnMirrorToggle" title="Corrigir imagem espelhada da câmera">Espelhar câmera</button>
+          </div>
+
+          <div class="serial-row">
+            <input type="text" id="serialInput" placeholder="Serial do produto (opcional — Enter também finaliza)" disabled>
+          </div>
+          <div id="uploadProgressWrap" style="display:none;margin-top:10px;">
+            <div class="hint" id="uploadProgressText" style="margin-top:0;">Enviando vídeo…</div>
+            <div style="height:6px;background:var(--panel-2);border-radius:4px;overflow:hidden;border:1px solid var(--line);margin-top:4px;">
+              <div id="uploadProgressBar" style="height:100%;width:0%;background:var(--amber);transition:width .2s;"></div>
+            </div>
+          </div>
+          <p class="hint">A data/hora é gravada permanentemente no vídeo (canto superior do quadro). Se a câmera desconectar durante a gravação, um alerta sonoro é emitido e a gravação é interrompida e marcada para revisão.</p>
+        </div>
+
+        <div class="panel">
+          <div class="side-panel-title">Registro da sessão</div>
+          <div id="sessionLog">
+            <div class="log-line"><span>Aguardando início…</span><span class="log-time">—</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== DATABASE VIEW ===================== -->
+    <section class="view" id="view-database">
+      <h1>Banco de Vídeos</h1>
+      <p class="subtitle" id="databaseSubtitle">Histórico de gravações do seu setor.</p>
+
+      <div class="stat-strip" id="statStrip"></div>
+
+      <div class="toolbar">
+        <input type="text" id="searchBox" placeholder="Buscar por número do pacote ou serial…">
+        <select id="filterSev">
+          <option value="">Todas severidades</option>
+          <option value="ok">OK</option>
+          <option value="attention">Atenção</option>
+          <option value="critical">Crítico</option>
+          <option value="pending">Pendente</option>
+        </select>
+        <select id="filterSetor" style="display:none;"></select>
+        <button class="btn-ghost btn-sm" id="btnRefresh">Atualizar</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pacote</th>
+              <th>Setor</th>
+              <th>Gravado em</th>
+              <th>Duração</th>
+              <th>Classificação</th>
+              <th>Sincronização</th>
+              <th>Retenção</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="dbTableBody">
+            <tr class="empty-row"><td colspan="8">Nenhuma gravação ainda.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== USERS VIEW (ADM) ===================== -->
+    <section class="view" id="view-users">
+      <h1>Usuários</h1>
+      <p class="subtitle">Cada usuário grava e vê apenas o setor dele. Administradores veem todos os setores.</p>
+
+      <div class="grid2">
+        <div class="panel">
+          <div class="side-panel-title">Usuários cadastrados</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>ID</th><th>Nome</th><th>Setor</th><th>Tipo</th><th>Ações</th></tr></thead>
+              <tbody id="usersTableBody"><tr class="empty-row"><td colspan="5">Carregando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="side-panel-title">Novo usuário</div>
+          <label class="field-label">ID (login)</label>
+          <input type="text" id="newUserId" placeholder="ex: joao">
+          <label class="field-label" style="margin-top:10px;">Nome</label>
+          <input type="text" id="newUserNome" placeholder="Nome completo">
+          <label class="field-label" style="margin-top:10px;">Setor</label>
+          <input type="text" id="newUserSetor" placeholder="ex: Acer">
+          <label class="field-label" style="margin-top:10px;">Tipo</label>
+          <select id="newUserTipo">
+            <option value="COMUM">Comum</option>
+            <option value="ADM">Administrador</option>
+          </select>
+          <label class="field-label" style="margin-top:10px;">Senha</label>
+          <input type="password" id="newUserSenha" placeholder="senha inicial">
+          <button class="btn-primary btn-block" id="btnCreateUser" style="margin-top:14px;">Criar usuário</button>
+          <p class="hint">O vídeo de cada gravação é salvo na pasta com o nome do setor. Setores são criados automaticamente na primeira gravação.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== SETTINGS VIEW ===================== -->
+    <section class="view" id="view-settings">
+      <h1>Configurações</h1>
+      <p class="subtitle">Câmera, retenção de vídeos e comportamento de alertas.</p>
+
+      <div class="settings-grid">
+        <div class="panel" id="panelServidor">
+          <div class="side-panel-title">Servidor</div>
+          <div class="set-row">
+            <label class="field-label">Endereço da API</label>
+            <input type="text" id="apiBaseInput" value="" placeholder="Deixe em branco para usar o mesmo endereço da página">
+            <div class="desc">Como a página e a API rodam no mesmo servidor Node, deixe este campo em branco para usar automaticamente o mesmo endereço.</div>
+          </div>
+          <div class="set-row" style="margin-bottom:0;">
+            <span id="serverStatusBadge" class="badge pending">Verificando servidor…</span>
+            <button class="btn-ghost btn-sm" id="btnReconnect" style="margin-left:8px;">Reconectar</button>
+            <button class="btn-ghost btn-sm" id="btnRetryAll" style="margin-left:8px;">Reenviar pendentes</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="side-panel-title">Dispositivo de câmera</div>
+          <div class="set-row">
+            <label class="field-label">Câmera de entrada (USB / sem fio)</label>
+            <select id="cameraSelect"><option>Detectando dispositivos…</option></select>
+          </div>
+          <div class="set-row">
+            <button class="btn-ghost btn-sm" id="btnRescan">Redetectar câmeras</button>
+          </div>
+        </div>
+
+        <div class="panel" id="panelRetention">
+          <div class="side-panel-title">Retenção &amp; Exclusão</div>
+          <div class="set-row">
+            <label class="field-label">Prazo padrão de exclusão (dias)</label>
+            <input type="number" id="retentionDays" value="90" min="1">
+            <div class="desc">Vídeos classificados como <strong>OK</strong> ou <strong>Atenção</strong> seguem este prazo. Vídeos <strong>Críticos</strong> nunca são excluídos automaticamente — exigem confirmação de um administrador.</div>
+          </div>
+          <div class="toggle-row" id="adminModeRow" style="display:none;">
+            <div>
+              <div style="font-size:13px;font-weight:600;">Modo Administrador</div>
+              <div class="desc">Permite excluir vídeos protegidos/críticos (fica disponível só para o seu usuário, que já é administrador).</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="adminToggle"><span class="slider"></span></label>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="side-panel-title">Alertas</div>
+          <div class="toggle-row">
+            <div>
+              <div style="font-size:13px;font-weight:600;">Alerta sonoro ao desconectar câmera</div>
+              <div class="desc">Emite um bipe e interrompe a gravação se a câmera perder conexão no meio do processo.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="soundAlertToggle" checked><span class="slider"></span></label>
+          </div>
+        </div>
+
+        <div class="panel" id="panelSimFail">
+          <div class="side-panel-title">Falha de rede (teste)</div>
+          <div class="set-row">
+            <div class="desc" style="margin-top:0;">Se o envio falhar, o vídeo continua salvo no navegador, marcado como "Somente local", com botão de reenvio.</div>
+            <label class="switch" style="margin-top:10px;"><input type="checkbox" id="simFailToggle"><span class="slider"></span></label>
+            <span style="font-size:12px;color:var(--muted);margin-left:8px;">Simular falha de envio na próxima gravação</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Generic confirm dialog -->
+<div class="dialog-overlay" id="confirmOverlay">
+  <div class="dialog-box">
+    <h3 id="confirmTitle">Confirmar</h3>
+    <p id="confirmBody"></p>
+    <div class="dialog-actions" id="confirmActions"></div>
+  </div>
+</div>
+
+<!-- Change password dialog -->
+<div class="dialog-overlay" id="changePwOverlay">
+  <div class="dialog-box">
+    <h3>Alterar senha</h3>
+    <label class="field-label">Senha atual</label>
+    <input type="password" id="pwCurrent" autocomplete="current-password">
+    <label class="field-label" style="margin-top:10px;">Nova senha</label>
+    <input type="password" id="pwNew" autocomplete="new-password">
+    <label class="field-label" style="margin-top:10px;">Confirmar nova senha</label>
+    <input type="password" id="pwConfirm" autocomplete="new-password">
+    <div class="dialog-actions" style="margin-top:16px;">
+      <button class="btn-ghost" id="btnCancelChangePw">Cancelar</button>
+      <button class="btn-primary" id="btnConfirmChangePw">Salvar nova senha</button>
+    </div>
+  </div>
+</div>
+
+<!-- Classification modal -->
+<div class="dialog-overlay" id="classifyOverlay">
+  <div class="dialog-box" style="max-width:480px;">
+    <h3>Classificar gravação</h3>
+    <p class="hint" id="classifyPkgLabel" style="margin-top:-6px;margin-bottom:14px;font-family:var(--mono);color:var(--amber);">—</p>
+    <div class="cards-grid" id="cardsGrid">
+      <div class="class-card" data-sev="ok" data-label="OK"><span class="cg">✓</span>OK</div>
+      <div class="class-card" data-sev="attention" data-label="Danificado"><span class="cg">⚠</span>Danificado</div>
+      <div class="class-card" data-sev="critical" data-label="Divergência"><span class="cg">✕</span>Divergência</div>
+    </div>
+    <div class="sev-note" id="sevNote">Selecione uma classificação para ver o impacto na retenção do vídeo.</div>
+    <label class="field-label" style="margin-top:12px;">Observações (opcional)</label>
+    <textarea id="classifyNotes" placeholder="Detalhes adicionais sobre a embalagem…"></textarea>
+    <div class="dialog-actions" style="margin-top:16px;">
+      <button class="btn-ghost" id="btnClassifyLater">Classificar depois</button>
+      <button class="btn-primary" id="btnClassifySave" disabled>Salvar classificação</button>
+    </div>
+  </div>
+</div>
+
+<!-- Player modal -->
+<div class="dialog-overlay" id="playerOverlay">
+  <div class="dialog-box" style="max-width:640px;">
+    <h3 id="playerTitle">Reprodução</h3>
+    <video class="player-video" id="playerVideo" controls></video>
+    <div class="player-meta" id="playerMeta"></div>
+    <div class="dialog-actions" style="margin-top:14px;">
+      <button class="btn-ghost" id="btnClosePlayer">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* =========================================================================
+   PackGuard — protótipo client-side com login, setores e armazenamento local
+   de contingência (IndexedDB) para quando o servidor está inacessível.
+   ========================================================================= */
+
+/* ---------- auth state ---------- */
+let authToken = localStorage.getItem('packguard_token') || null;
+let currentUser = null; // {id, nome, setor, tipo}
+
+function saveSession(token, user){
+  authToken = token;
+  currentUser = user;
+  localStorage.setItem('packguard_token', token);
+  localStorage.setItem('packguard_user', JSON.stringify(user));
+}
+function clearSession(){
+  authToken = null;
+  currentUser = null;
+  localStorage.removeItem('packguard_token');
+  localStorage.removeItem('packguard_user');
+}
+
+/* Wrapper de fetch que já inclui o header de autenticação e trata sessão
+   expirada (401) derrubando o usuário de volta pra tela de login. */
+async function apiFetch(path, options={}){
+  const headers = Object.assign({}, options.headers || {});
+  if(authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  const res = await fetch(settings.apiBase + path, Object.assign({}, options, {headers}));
+  if(res.status === 401){
+    clearSession();
+    showLoginScreen('Sessão expirada. Faça login novamente.');
+  }
+  return res;
+}
+
+/* ---------- IndexedDB helpers (buffer local de contingência) ---------- */
+const DB_NAME = 'packguard_db';
+const STORE = 'recordings';
+let db;
+
+function openDB(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = (e)=>{
+      const _db = e.target.result;
+      if(!_db.objectStoreNames.contains(STORE)){
+        const os = _db.createObjectStore(STORE, {keyPath:'id'});
+        os.createIndex('pkg', 'pkg', {unique:false});
+      }
+    };
+    req.onsuccess = (e)=>{ db = e.target.result; resolve(db); };
+    req.onerror = (e)=> reject(e);
+  });
+}
+function dbPut(record){
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(record);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = (e)=>reject(e);
+  });
+}
+function dbGetAll(){
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = (e)=>reject(e);
+  });
+}
+function dbGetById(id){
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get(id);
+    req.onsuccess = ()=>resolve(req.result || null);
+    req.onerror = (e)=>reject(e);
+  });
+}
+function dbDelete(id){
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = (e)=>reject(e);
+  });
+}
+
+/* ---------- state ---------- */
+let mediaStream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recStartTs = null;
+let recTimerInterval = null;
+let overlayRAF = null;
+let currentPkg = null;
+let disconnectWatchInterval = null;
+let audioCtx = null;
+let allRecords = [];
+
+/* ---------- barcode scan mode state ---------- */
+let scanMode = false;
+let scanLoopTimeout = null;
+let bcDetector = null;
+const scanCropCanvas = document.createElement('canvas');
+const scanCropCtx = scanCropCanvas.getContext('2d');
+// Dados de uma gravação iniciada por leitura de código de barras, aguardando
+// a gravação terminar pra serem anexados ao upload (ver onRecorderStop).
+// {pkg, labelBlob, ocrPromise}
+let pendingScan = null;
+
+const settings = {
+  retentionDays: 90,
+  soundAlert: true,
+  adminMode: false,
+  simulateFailNext: false,
+  cameraDeviceId: null,
+  apiBase: ''
+};
+let serverOnline = false;
+let serverTimeOffsetMs = 0;
+
+/* ---------- DOM refs ---------- */
+const $ = (id)=>document.getElementById(id);
+const pkgInput = $('pkgInput');
+const rawVideo = $('rawVideo');
+const overlayCanvas = $('overlayCanvas');
+const octx = overlayCanvas.getContext('2d');
+const videoEmpty = $('videoEmpty');
+const videoEmptyText = $('videoEmptyText');
+const recBadge = $('recBadge');
+const recTimer = $('recTimer');
+const btnStart = $('btnStart');
+const btnFinish = $('btnFinish');
+const btnDiscard = $('btnDiscard');
+const serialInput = $('serialInput');
+const sessionLog = $('sessionLog');
+const camStatusStrip = $('camStatusStrip');
+const btnScanMode = $('btnScanMode');
+const scanBadge = $('scanBadge');
+const scanOcrNote = $('scanOcrNote');
+
+/* ---------- login ---------- */
+function showLoginScreen(errorMsg){
+  $('loginScreen').style.display = 'flex';
+  $('appShell').classList.remove('show');
+  if(errorMsg){
+    $('loginError').textContent = errorMsg;
+    $('loginError').classList.add('show');
+  }else{
+    $('loginError').classList.remove('show');
+  }
+}
+function showAppShell(){
+  $('loginScreen').style.display = 'none';
+  $('appShell').classList.add('show');
+  $('navUserName').textContent = currentUser.nome;
+  $('navUserMeta').textContent = `${currentUser.setor} · ${currentUser.tipo === 'ADM' ? 'Administrador' : 'Comum'}`;
+  const isAdmin = currentUser.tipo === 'ADM';
+  $('navUsers').style.display = isAdmin ? 'flex' : 'none';
+  $('adminModeRow').style.display = isAdmin ? 'flex' : 'none';
+  $('filterSetor').style.display = isAdmin ? 'inline-block' : 'none';
+  // Configurações de servidor, retenção/exclusão e o teste de falha de rede
+  // são decisões de administração — um técnico comum não deveria nem ver
+  // essas opções, quanto mais mexer nelas.
+  $('panelServidor').style.display = isAdmin ? '' : 'none';
+  $('panelRetention').style.display = isAdmin ? '' : 'none';
+  $('panelSimFail').style.display = isAdmin ? '' : 'none';
+  bootAfterLogin();
+}
+
+$('btnLogin').addEventListener('click', doLogin);
+$('loginSenha').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') doLogin(); });
+async function doLogin(){
+  const id = $('loginId').value.trim();
+  const senha = $('loginSenha').value;
+  if(!id || !senha){ showLoginScreen('Informe usuário e senha.'); return; }
+  try{
+    const res = await fetch(settings.apiBase + '/api/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({id, senha})
+    });
+    const data = await res.json();
+    if(!res.ok){ showLoginScreen(data.error || 'Falha ao entrar.'); return; }
+    saveSession(data.token, data.user);
+    $('loginSenha').value = '';
+    showAppShell();
+  }catch(e){
+    showLoginScreen('Não foi possível contatar o servidor. Verifique a conexão.');
+  }
+}
+
+$('btnLogout').addEventListener('click', async ()=>{
+  try{ await apiFetch('/api/logout', {method:'POST'}); }catch(e){ /* segue mesmo se falhar */ }
+  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream = null; }
+  clearSession();
+  location.reload();
+});
+
+/* ---------- change password ---------- */
+$('btnOpenChangePw').addEventListener('click', ()=>{
+  $('pwCurrent').value = ''; $('pwNew').value = ''; $('pwConfirm').value = '';
+  $('changePwOverlay').classList.add('show');
+});
+$('btnCancelChangePw').addEventListener('click', ()=>{
+  $('changePwOverlay').classList.remove('show');
+});
+$('btnConfirmChangePw').addEventListener('click', async ()=>{
+  const senhaAtual = $('pwCurrent').value;
+  const novaSenha = $('pwNew').value;
+  const confirmSenha = $('pwConfirm').value;
+  if(!senhaAtual || !novaSenha || !confirmSenha){ toast('Preencha todos os campos.', 'error'); return; }
+  if(novaSenha.length < 4){ toast('A nova senha precisa ter pelo menos 4 caracteres.', 'error'); return; }
+  if(novaSenha !== confirmSenha){ toast('As senhas novas não coincidem.', 'error'); return; }
+  try{
+    const res = await apiFetch('/api/change-password', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({senhaAtual, novaSenha})
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok){ toast(data.error || 'Falha ao alterar senha.', 'error'); return; }
+    $('changePwOverlay').classList.remove('show');
+    toast('Senha alterada com sucesso.', 'success');
+  }catch(e){
+    toast('Não foi possível contatar o servidor.', 'error');
+  }
+});
+
+/* ---------- navigation ---------- */
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click', ()=>{
+    document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    item.classList.add('active');
+    $('view-' + item.dataset.view).classList.add('active');
+    if(item.dataset.view === 'database') renderDatabase();
+    if(item.dataset.view === 'users') renderUsers();
+  });
+});
+
+/* ---------- toast ---------- */
+function toast(msg, type=''){
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' '+type : '');
+  el.textContent = msg;
+  $('toastStack').appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(), 300); }, 4200);
+}
+
+/* ---------- session log ---------- */
+function logLine(text){
+  const now = new Date(nowMs());
+  const t = now.toLocaleTimeString('pt-BR');
+  if(sessionLog.children.length === 1 && sessionLog.children[0].textContent.includes('Aguardando')){
+    sessionLog.innerHTML = '';
+  }
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  div.innerHTML = `<span>${text}</span><span class="log-time">${t}</span>`;
+  sessionLog.prepend(div);
+}
+
+/* ---------- confirm dialog helper ---------- */
+function showConfirm({title, body, actions}){
+  $('confirmTitle').textContent = title;
+  $('confirmBody').textContent = body;
+  const actionsEl = $('confirmActions');
+  actionsEl.innerHTML = '';
+  actions.forEach(a=>{
+    const b = document.createElement('button');
+    b.textContent = a.label;
+    b.className = a.className || 'btn-ghost';
+    b.addEventListener('click', ()=>{
+      $('confirmOverlay').classList.remove('show');
+      a.onClick && a.onClick();
+    });
+    actionsEl.appendChild(b);
+  });
+  $('confirmOverlay').classList.add('show');
+}
+
+/* ---------- beep alert ---------- */
+function playAlertBeep(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let count = 0;
+    const fire = ()=>{
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = 880;
+      gain.gain.value = 0.15;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.18);
+      count++;
+      if(count < 4) setTimeout(fire, 260);
+    };
+    fire();
+  }catch(e){ /* audio not available */ }
+}
+
+/* ---------- server connectivity & clock sync ---------- */
+async function checkServerHealth(){
+  try{
+    const res = await fetch(settings.apiBase + '/api/health', {method:'GET', signal: AbortSignal.timeout(2500)});
+    serverOnline = res.ok;
+  }catch(e){
+    serverOnline = false;
+  }
+  updateServerBadge();
+  if(serverOnline) syncServerTime();
+  return serverOnline;
+}
+function updateServerBadge(){
+  const el = $('serverStatusBadge');
+  if(!el) return;
+  if(serverOnline){
+    el.className = 'badge ok';
+    el.textContent = 'Servidor conectado';
+  }else{
+    el.className = 'badge critical';
+    el.textContent = 'Servidor indisponível — salvando localmente';
+  }
+}
+async function syncServerTime(){
+  try{
+    const t0 = Date.now();
+    const res = await fetch(settings.apiBase + '/api/time', {signal: AbortSignal.timeout(4000)});
+    const t1 = Date.now();
+    if(!res.ok) return false;
+    const data = await res.json();
+    const roundTrip = t1 - t0;
+    serverTimeOffsetMs = (data.serverTime + roundTrip/2) - t1;
+    return true;
+  }catch(e){ return false; }
+}
+function nowMs(){ return Date.now() + serverTimeOffsetMs; }
+
+/* ---------- camera enumeration / status ---------- */
+async function refreshCameraList(){
+  try{
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d=>d.kind === 'videoinput');
+    const sel = $('cameraSelect');
+    sel.innerHTML = '';
+    if(cams.length === 0){
+      sel.innerHTML = '<option value="">Nenhuma câmera detectada</option>';
+      setCamStatus(false);
+      return;
+    }
+    cams.forEach((c,i)=>{
+      const opt = document.createElement('option');
+      opt.value = c.deviceId;
+      opt.textContent = c.label || `Câmera ${i+1}`;
+      sel.appendChild(opt);
+    });
+    settings.cameraDeviceId = settings.cameraDeviceId || cams[0].deviceId;
+    sel.value = settings.cameraDeviceId;
+  }catch(e){
+    setCamStatus(false);
+  }
+}
+function setCamStatus(ok){
+  camStatusStrip.innerHTML = `<span class="cam-dot ${ok?'ok':'off'}"></span>${ok?'Câmera pronta':'Câmera inativa'}`;
+}
+$('cameraSelect').addEventListener('change', (e)=> switchCamera(e.target.value));
+async function switchCamera(deviceId){
+  if(!deviceId) return;
+  settings.cameraDeviceId = deviceId;
+  const ok = await activateCamera(true);
+  if(ok) toast('Câmera trocada.', 'success');
+}
+$('btnRescan').addEventListener('click', refreshCameraList);
+navigator.mediaDevices && navigator.mediaDevices.addEventListener && navigator.mediaDevices.addEventListener('devicechange', refreshCameraList);
+
+$('btnCycleCamera').addEventListener('click', async ()=>{
+  const options = Array.from($('cameraSelect').options).map(o=>o.value).filter(Boolean);
+  if(options.length < 2){ toast('Só uma câmera disponível neste dispositivo.', 'error'); return; }
+  const currentIndex = options.indexOf(settings.cameraDeviceId);
+  const nextId = options[(currentIndex + 1) % options.length];
+  await switchCamera(nextId);
+});
+
+$('btnMirrorToggle').addEventListener('click', ()=>{
+  mirrorFlip = !mirrorFlip;
+  $('btnMirrorToggle').classList.toggle('active', mirrorFlip);
+  toast(mirrorFlip ? 'Espelhamento corrigido.' : 'Espelhamento desativado.', 'success');
+});
+
+/* ---------- overlay drawing (burns timestamp into the frame) ---------- */
+let mirrorFlip = false;
+function drawOverlayFrame(){
+  if(rawVideo.readyState >= 2 && rawVideo.videoWidth){
+    if(overlayCanvas.width !== rawVideo.videoWidth){
+      overlayCanvas.width = rawVideo.videoWidth;
+      overlayCanvas.height = rawVideo.videoHeight;
+    }
+
+    // O espelhamento é corrigido aqui, no desenho do quadro em si — não é
+    // só um efeito visual de CSS. Como o vídeo gravado vem deste mesmo
+    // canvas (captureStream), corrigir só a prévia deixaria o arquivo
+    // salvo espelhado mesmo assim.
+    octx.save();
+    if(mirrorFlip){
+      octx.translate(overlayCanvas.width, 0);
+      octx.scale(-1, 1);
+    }
+    octx.drawImage(rawVideo, 0, 0, overlayCanvas.width, overlayCanvas.height);
+    octx.restore();
+
+    const now = new Date(nowMs());
+    const stamp = now.toLocaleDateString('pt-BR') + '  ' + now.toLocaleTimeString('pt-BR');
+    const pkgLabel = currentPkg ? `PACOTE: ${currentPkg}` : '';
+    const fontSize = Math.max(14, Math.round(overlayCanvas.width * 0.022));
+    octx.font = `600 ${fontSize}px 'IBM Plex Mono', monospace`;
+    octx.textBaseline = 'top';
+
+    const pad = fontSize * 0.6;
+    const lines = [stamp];
+    if(pkgLabel) lines.push(pkgLabel);
+    const boxW = Math.max(...lines.map(l=>octx.measureText(l).width)) + pad*2;
+    const boxH = lines.length * (fontSize*1.35) + pad;
+
+    octx.fillStyle = 'rgba(0,0,0,0.55)';
+    octx.fillRect(10, 10, boxW, boxH);
+    octx.fillStyle = '#F5A623';
+    lines.forEach((l,i)=>{
+      octx.fillText(l, 10+pad, 10 + pad/2 + i*(fontSize*1.35));
+    });
+
+    if(scanMode){
+      const rect = getScanGuideRect();
+      if(rect){
+        octx.save();
+        octx.strokeStyle = '#4F9DDE';
+        octx.lineWidth = Math.max(2, Math.round(overlayCanvas.width * 0.003));
+        octx.setLineDash([]);
+        octx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        octx.restore();
+      }
+    }
+  }
+  overlayRAF = requestAnimationFrame(drawOverlayFrame);
+}
+
+/* Retângulo-guia (em pixels do canvas, não da tela) usado tanto pro desenho
+   do guia visual quanto pro recorte que é passado ao leitor de código de
+   barras — usar as MESMAS coordenadas pros dois garante que o que o técnico
+   vê enquadrado é exatamente o que está sendo decodificado. */
+function getScanGuideRect(){
+  const w = overlayCanvas.width, h = overlayCanvas.height;
+  if(!w || !h) return null;
+  const rw = Math.round(w * 0.72), rh = Math.round(h * 0.30);
+  return { x: Math.round((w-rw)/2), y: Math.round((h-rh)/2), w: rw, h: rh };
+}
+
+/* Aplica os melhores ajustes de câmera que o dispositivo/navegador permitirem. */
+async function applyCameraQualityConstraints(track){
+  if(!track.getCapabilities) return;
+  const caps = track.getCapabilities();
+  const advanced = {};
+  if(caps.focusMode){
+    if(caps.focusMode.includes('continuous')) advanced.focusMode = 'continuous';
+    else if(caps.focusMode.includes('single-shot')) advanced.focusMode = 'single-shot';
+  }
+  if(caps.exposureMode && caps.exposureMode.includes('continuous')) advanced.exposureMode = 'continuous';
+  if(caps.whiteBalanceMode && caps.whiteBalanceMode.includes('continuous')) advanced.whiteBalanceMode = 'continuous';
+  if(caps.sharpness && typeof caps.sharpness.max === 'number') advanced.sharpness = caps.sharpness.max;
+  if(Object.keys(advanced).length === 0) return;
+  try{ await track.applyConstraints({advanced: [advanced]}); }catch(e){ /* não crítico */ }
+}
+
+/* ---------- start camera preview (before recording) ---------- */
+async function activateCamera(force){
+  if(mediaStream && !force) return true;
+  if(mediaStream){
+    mediaStream.getTracks().forEach(t=>t.stop());
+    mediaStream = null;
+  }
+  try{
+    const videoConstraints = { width:{ideal:1280}, height:{ideal:720} };
+    if(settings.cameraDeviceId) videoConstraints.deviceId = {exact: settings.cameraDeviceId};
+    const constraints = { video: videoConstraints, audio: false };
+    mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+    rawVideo.srcObject = mediaStream;
+    await rawVideo.play();
+    videoEmpty.style.display = 'none';
+    setCamStatus(true);
+    await refreshCameraList();
+    const activeTrack = mediaStream.getVideoTracks()[0];
+    if(activeTrack){
+      const activeId = activeTrack.getSettings().deviceId;
+      if(activeId){ settings.cameraDeviceId = activeId; $('cameraSelect').value = activeId; }
+      await applyCameraQualityConstraints(activeTrack);
+    }
+    if(!overlayRAF) drawOverlayFrame();
+    return true;
+  }catch(e){
+    setCamStatus(false);
+    videoEmptyText.textContent = 'Não foi possível acessar a câmera. Verifique a conexão e as permissões.';
+    videoEmpty.style.display = 'flex';
+    toast('Câmera não detectada — gravação bloqueada.', 'error');
+    return false;
+  }
+}
+
+function watchForDisconnect(){
+  disconnectWatchInterval = setInterval(()=>{
+    if(!mediaStream) return;
+    const track = mediaStream.getVideoTracks()[0];
+    if(!track || track.readyState === 'ended'){
+      handleCameraDisconnect();
+    }
+  }, 700);
+}
+function stopWatchingDisconnect(){
+  if(disconnectWatchInterval){ clearInterval(disconnectWatchInterval); disconnectWatchInterval = null; }
+}
+function handleCameraDisconnect(){
+  if(settings.soundAlert) playAlertBeep();
+  logLine('⚠ Câmera desconectada — gravação interrompida automaticamente.');
+  toast('Câmera desconectada! Gravação interrompida e marcada para revisão.', 'error');
+  setCamStatus(false);
+  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream = null; }
+  if(mediaRecorder && mediaRecorder.state !== 'inactive'){
+    mediaRecorder.__interrupted = true;
+    mediaRecorder.stop();
+    // NÃO limpar o estado (currentPkg etc.) aqui — mediaRecorder.stop() é
+    // assíncrono, e onRecorderStop() (chamado quando o navegador realmente
+    // termina de processar o vídeo) é quem lê currentPkg para montar os
+    // dados da gravação e quem já chama cleanupAfterStopAttempt() na hora
+    // certa. Limpar aqui também apagava o número do pacote ANTES desse
+    // processamento rodar, salvando "null" como número do pacote.
+  }
+}
+
+/* ---------- barcode scan mode ---------- */
+function waitForGlobal(name, timeoutMs){
+  return new Promise(resolve=>{
+    const start = Date.now();
+    (function check(){
+      if(window[name]) return resolve(true);
+      if(Date.now()-start > timeoutMs) return resolve(false);
+      setTimeout(check, 100);
+    })();
+  });
+}
+
+async function ensureBarcodeDetector(){
+  if(bcDetector) return bcDetector;
+  if(!window.BarcodeDetector){
+    const ok = await waitForGlobal('BarcodeDetector', 4000);
+    if(!ok) return null;
+  }
+  try{
+    bcDetector = new window.BarcodeDetector({
+      formats: ['code_128','code_39','code_93','codabar','ean_13','ean_8','upc_a','upc_e','itf','qr_code','data_matrix','pdf417']
+    });
+  }catch(e){
+    try{ bcDetector = new window.BarcodeDetector(); }
+    catch(e2){ bcDetector = null; }
+  }
+  return bcDetector;
+}
+
+$('btnScanMode').addEventListener('click', ()=>{
+  if(scanMode) stopScanMode(); else startScanMode();
+});
+
+async function startScanMode(){
+  if(scanMode) return;
+  if(mediaRecorder && mediaRecorder.state === 'recording'){
+    toast('Finalize a gravação atual antes de usar o modo scan.', 'error');
+    return;
+  }
+  const camOk = await activateCamera();
+  if(!camOk) return;
+  const detector = await ensureBarcodeDetector();
+  if(!detector){
+    toast('Leitor de código de barras não pôde ser carregado — use a entrada manual do número do pacote.', 'error');
+    return;
+  }
+  scanMode = true;
+  btnScanMode.textContent = 'Cancelar Modo Scan';
+  btnScanMode.classList.add('active');
+  scanBadge.classList.add('show');
+  scanOcrNote.classList.remove('show');
+  logLine('Modo scan ativado — aponte a câmera para o código de barras do pacote.');
+  runScanLoop();
+}
+
+function stopScanMode(silent){
+  scanMode = false;
+  if(scanLoopTimeout){ clearTimeout(scanLoopTimeout); scanLoopTimeout = null; }
+  btnScanMode.textContent = 'Ativar Modo Scan';
+  btnScanMode.classList.remove('active');
+  scanBadge.classList.remove('show');
+  if(!silent) logLine('Modo scan desativado.');
+}
+
+async function tryDetectBarcode(source){
+  try{
+    const codes = await bcDetector.detect(source);
+    if(codes && codes.length > 0 && codes[0].rawValue) return codes[0].rawValue;
+  }catch(e){ /* leitura falhou nesse quadro — tenta de novo no próximo */ }
+  return null;
+}
+
+async function runScanLoop(){
+  if(!scanMode) return;
+  try{
+    const rect = getScanGuideRect();
+    let result = null;
+    // Primeiro tenta só a área do guia (mais rápido, menos ruído); se não
+    // achar nada ali, cai pro quadro inteiro como reforço de tolerância.
+    if(rect && rect.w > 0 && rect.h > 0){
+      scanCropCanvas.width = rect.w;
+      scanCropCanvas.height = rect.h;
+      scanCropCtx.drawImage(overlayCanvas, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
+      result = await tryDetectBarcode(scanCropCanvas);
+    }
+    if(!result && overlayCanvas.width){
+      result = await tryDetectBarcode(overlayCanvas);
+    }
+    if(result && scanMode){
+      await onBarcodeDetected(result);
+      return;
+    }
+  }catch(e){ /* segue tentando */ }
+  if(scanMode) scanLoopTimeout = setTimeout(runScanLoop, 220);
+}
+
+function captureLabelPhoto(){
+  return new Promise(resolve=>{
+    try{
+      const c = document.createElement('canvas');
+      c.width = overlayCanvas.width;
+      c.height = overlayCanvas.height;
+      c.getContext('2d').drawImage(overlayCanvas, 0, 0);
+      c.toBlob(blob=>resolve(blob || null), 'image/jpeg', 0.85);
+    }catch(e){ resolve(null); }
+  });
+}
+
+/* Heurística simples pra separar remetente/destinatário do texto bruto do
+   OCR — é um bônus pontual (uma foto, um reconhecimento só), não uma leitura
+   estruturada de etiqueta; se não achar nada reconhecível, apenas não
+   preenche esses campos (não bloqueia a gravação). */
+function parseLabelText(text){
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const labelRe = /remetente|destinat[aá]rio|sender|recipient|^de:|^para:/i;
+  const senderIdx = lines.findIndex(l=>/remetente|sender|^de:/i.test(l));
+  const recipIdx = lines.findIndex(l=>/destinat[aá]rio|recipient|^para:/i.test(l));
+  function collectBlock(startIdx){
+    if(startIdx === -1) return null;
+    const block = [];
+    for(let i=startIdx+1; i<lines.length && block.length<4; i++){
+      if(labelRe.test(lines[i])) break;
+      block.push(lines[i]);
+    }
+    return block.length ? block.join(', ') : null;
+  }
+  const trackMatch = text.match(/\b[A-Z]{2}\d{8,9}[A-Z]{0,2}\b|\b\d{10,20}\b/);
+  return {
+    trackingCode: trackMatch ? trackMatch[0] : null,
+    senderAddress: collectBlock(senderIdx),
+    recipientAddress: collectBlock(recipIdx)
+  };
+}
+
+async function runLabelOcr(blob){
+  try{
+    if(!window.Tesseract){
+      const ok = await waitForGlobal('Tesseract', 4000);
+      if(!ok) return null;
+    }
+    const { data } = await window.Tesseract.recognize(blob, 'por');
+    const text = (data && data.text || '').trim();
+    if(!text) return null;
+    return parseLabelText(text);
+  }catch(e){
+    console.warn('[OCR] falhou:', e);
+    return null;
+  }
+}
+
+async function onBarcodeDetected(rawValue){
+  stopScanMode(true);
+  const pkg = String(rawValue).trim();
+  if(!pkg){ logLine('Código de barras lido, mas valor veio vazio — tente novamente.'); return; }
+
+  toast(`Código lido: ${pkg}`, 'success');
+  logLine(`Código de barras lido: ${pkg}`);
+  pkgInput.value = pkg;
+
+  const labelBlob = await captureLabelPhoto();
+  const ocrPromise = labelBlob ? runLabelOcr(labelBlob) : Promise.resolve(null);
+  pendingScan = { pkg, labelBlob, ocrPromise };
+  if(labelBlob){
+    scanOcrNote.textContent = 'Lendo remetente/destinatário da etiqueta…';
+    scanOcrNote.classList.add('show');
+    ocrPromise.then(res=>{
+      if(pendingScan && pendingScan.pkg === pkg){
+        scanOcrNote.textContent = res ? 'Dados da etiqueta capturados.' : 'Não foi possível ler dados adicionais da etiqueta (não crítico).';
+        setTimeout(()=>scanOcrNote.classList.remove('show'), 3000);
+      }
+    });
+  }
+
+  await startFromPkg(pkg);
+}
+
+/* ---------- recording lifecycle ---------- */
+btnStart.addEventListener('click', handleStartRequest);
+pkgInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); handleStartRequest(); }
+});
+
+/* Ponto único de entrada pra iniciar: tanto o clique no botão quanto o
+   Enter no campo do pacote (que é como um leitor de código de barras em
+   modo teclado se comporta — escaneia, digita o número e manda Enter
+   sozinho) caem aqui. */
+async function handleStartRequest(){
+  const pkg = pkgInput.value.trim();
+  if(!pkg){ toast('Informe o número do pacote antes de iniciar.', 'error'); pkgInput.focus(); return; }
+  await startFromPkg(pkg);
+}
+
+/* Ponto único pra resolver duplicidade e iniciar a gravação, usado tanto
+   pela entrada manual/leitor em modo teclado (handleStartRequest) quanto
+   pelo modo scan visual (onBarcodeDetected). */
+async function startFromPkg(pkg){
+  const { finalPkg, wasDuplicate } = await resolveUniquePkg(pkg);
+  if(wasDuplicate){
+    showConfirm({
+      title:'Número de pacote já registrado',
+      body:`Já existe uma gravação para o pacote "${pkg}" no seu setor. Para evitar conflito, esta será salva como "${finalPkg}". Deseja continuar?`,
+      actions:[
+        {label:'Cancelar', className:'btn-ghost', onClick: ()=>{ if(pendingScan && pendingScan.pkg === pkg) pendingScan = null; }},
+        {label:'Continuar', className:'btn-primary', onClick: ()=> beginRecordingSession(finalPkg)}
+      ]
+    });
+    return;
+  }
+  await beginRecordingSession(finalPkg);
+}
+
+async function getExistingPkgSet(basePkg){
+  const set = new Set();
+  try{
+    const local = await dbGetAll();
+    local.forEach(r=>{ if(r.pkg && r.pkg.startsWith(basePkg)) set.add(r.pkg); });
+  }catch(e){ /* IndexedDB indisponível */ }
+  if(serverOnline){
+    try{
+      const res = await apiFetch('/api/recordings?pkg=' + encodeURIComponent(basePkg));
+      if(res.ok){
+        const data = await res.json();
+        data.forEach(r=>{ if(r.pkg && r.pkg.startsWith(basePkg)) set.add(r.pkg); });
+      }
+    }catch(e){ /* servidor indisponível */ }
+  }
+  return set;
+}
+async function resolveUniquePkg(pkg){
+  const existing = await getExistingPkgSet(pkg);
+  if(!existing.has(pkg)) return { finalPkg: pkg, wasDuplicate: false };
+  let n = 1;
+  while(existing.has(`${pkg} (${n})`)) n++;
+  return { finalPkg: `${pkg} (${n})`, wasDuplicate: true };
+}
+
+async function beginRecordingSession(pkg){
+  if(mediaRecorder && mediaRecorder.state === 'recording') return false;
+  if(scanMode) stopScanMode(true);
+  currentPkg = pkg;
+
+  const camOk = await activateCamera();
+  if(!camOk) return false;
+
+  const track = mediaStream.getVideoTracks()[0];
+  if(!track || track.readyState !== 'live'){
+    toast('Câmera não está ativa. Gravação não pode iniciar.', 'error');
+    return false;
+  }
+
+  // 720p @ 18fps com 2.5Mbps fica em ~0.15 bits/pixel — bem dentro da faixa
+  // de "boa qualidade" (referência: ~0.1 bpp), com folga confortável.
+  const canvasStream = overlayCanvas.captureStream(18);
+  recordedChunks = [];
+  const mime = pickMime();
+  const recorderOptions = { videoBitsPerSecond: 2_500_000 };
+  if(mime) recorderOptions.mimeType = mime;
+  mediaRecorder = new MediaRecorder(canvasStream, recorderOptions);
+  mediaRecorder.ondataavailable = (e)=>{ if(e.data.size>0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = onRecorderStop;
+  mediaRecorder.__interrupted = false;
+  mediaRecorder.start(500);
+
+  recStartTs = nowMs();
+  recBadge.classList.add('live');
+  recTimerInterval = setInterval(updateRecTimer, 250);
+  watchForDisconnect();
+
+  pkgInput.value = pkg;
+  pkgInput.disabled = true;
+  btnStart.disabled = true;
+  btnDiscard.disabled = false;
+  btnFinish.disabled = false;
+  serialInput.disabled = false;
+  serialInput.focus();
+  $('btnCycleCamera').disabled = true;
+  $('btnMirrorToggle').disabled = true;
+  btnScanMode.disabled = true;
+
+  logLine(`Gravação iniciada — pacote ${pkg}`);
+  return true;
+}
+
+function pickMime(){
+  const options = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+    'video/mp4;codecs=h264',
+    'video/mp4'
+  ];
+  for(const o of options){ if(MediaRecorder.isTypeSupported(o)) return o; }
+  return '';
+}
+
+function updateRecTimer(){
+  const secs = Math.floor((nowMs() - recStartTs)/1000);
+  const m = String(Math.floor(secs/60)).padStart(2,'0');
+  const s = String(secs%60).padStart(2,'0');
+  recTimer.textContent = `${m}:${s}`;
+}
+
+btnDiscard.addEventListener('click', ()=>{
+  showConfirm({
+    title:'Descartar gravação?',
+    body:'O vídeo atual será apagado e não ficará salvo no banco de vídeos. Esta ação não pode ser desfeita.',
+    actions:[
+      {label:'Cancelar', className:'btn-ghost'},
+      {label:'Descartar', className:'btn-danger', onClick:()=>{
+        mediaRecorder.__discard = true;
+        if(mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+        else cleanupAfterStopAttempt();
+        logLine('Gravação descartada pelo usuário.');
+      }}
+    ]
+  });
+});
+
+serialInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); finishRecording(); }
+});
+btnFinish.addEventListener('click', finishRecording);
+function finishRecording(){
+  if(!mediaRecorder || mediaRecorder.state === 'inactive') return;
+  mediaRecorder.stop();
+}
+
+async function onRecorderStop(){
+  stopWatchingDisconnect();
+  clearInterval(recTimerInterval);
+  recBadge.classList.remove('live');
+  const durationSec = Math.round((nowMs() - recStartTs)/1000);
+
+  if(mediaRecorder.__discard){
+    cleanupAfterStopAttempt();
+    return;
+  }
+
+  const blob = new Blob(recordedChunks, {type: recordedChunks[0]?.type || 'video/webm'});
+  const id = 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+  const interrupted = !!mediaRecorder.__interrupted;
+
+  // Se essa gravação foi iniciada pelo modo scan, espera o OCR da etiqueta
+  // terminar (com um teto de tempo, pra nunca travar o upload por causa de
+  // um OCR lento ou que não vai responder) e anexa os dados ao registro.
+  let scanData = null;
+  let labelBlobForUpload = null;
+  if(pendingScan && pendingScan.pkg === currentPkg){
+    labelBlobForUpload = pendingScan.labelBlob;
+    try{
+      scanData = await Promise.race([
+        pendingScan.ocrPromise,
+        new Promise(resolve=>setTimeout(()=>resolve(null), 8000))
+      ]);
+    }catch(e){ scanData = null; }
+  }
+  pendingScan = null;
+
+  const baseMeta = {
+    id,
+    pkg: currentPkg,
+    serial: serialInput.value.trim() || null,
+    createdAt: recStartTs,
+    durationSec,
+    classification: interrupted ? 'Interrompido — Falha de Câmera' : null,
+    severity: interrupted ? 'critical' : 'pending',
+    notes: interrupted ? 'Gravação interrompida automaticamente por desconexão de câmera durante o processo.' : '',
+    protected: interrupted,
+    retentionDays: settings.retentionDays,
+    trackingCode: (scanData && scanData.trackingCode) || null,
+    senderAddress: (scanData && scanData.senderAddress) || null,
+    recipientAddress: (scanData && scanData.recipientAddress) || null
+  };
+
+  const forceFail = settings.simulateFailNext;
+  settings.simulateFailNext = false;
+  $('simFailToggle').checked = false;
+
+  let serverRecord = null;
+  if(!forceFail){
+    showUploadProgress(blob.size);
+    serverRecord = await uploadRecordToServer(baseMeta, blob, labelBlobForUpload, updateUploadProgress);
+    hideUploadProgress();
+  }
+
+  let record;
+  if(serverRecord){
+    record = {...serverRecord, localOnly:false, blob:null};
+    logLine(`Gravação enviada ao servidor (${durationSec}s) — pacote ${baseMeta.pkg}.`);
+  }else{
+    record = {...baseMeta, blob, labelBlob: labelBlobForUpload, synced:false, localOnly:true, setor: currentUser.setor, createdBy: currentUser.id};
+    await dbPut(record);
+    const reason = describeUploadError(lastUploadError);
+    logLine(`Servidor indisponível — gravação salva localmente (${durationSec}s) e marcada para reenvio. Motivo: ${reason}`);
+    toast(`Não foi possível enviar ao servidor (${reason}). Vídeo preservado localmente para reenvio.`, 'error');
+  }
+
+  cleanupAfterStopAttempt();
+
+  if(interrupted){
+    if(serverRecord) await patchRecord(record, {classification: record.classification, severity: 'critical', protected: true});
+    toast('Gravação marcada como crítica (interrompida) — requer revisão do administrador.', 'error');
+    pkgInput.focus();
+  }else{
+    openClassifyModal(record);
+  }
+}
+
+function cleanupAfterStopAttempt(){
+  pkgInput.disabled = false;
+  btnStart.disabled = false;
+  btnFinish.disabled = true;
+  btnDiscard.disabled = true;
+  serialInput.disabled = true;
+  serialInput.value = '';
+  pkgInput.value = '';
+  currentPkg = null;
+  recTimer.textContent = '00:00';
+  $('btnCycleCamera').disabled = false;
+  $('btnMirrorToggle').disabled = false;
+  btnScanMode.disabled = false;
+  videoEmptyText.textContent = 'Insira o número do pacote e clique em Iniciar para ativar a câmera';
+}
+
+function showUploadProgress(sizeBytes){
+  const mb = (sizeBytes / (1024*1024)).toFixed(1);
+  $('uploadProgressWrap').style.display = 'block';
+  $('uploadProgressText').textContent = `Enviando vídeo (${mb} MB)…`;
+  $('uploadProgressBar').style.width = '0%';
+}
+function updateUploadProgress(pct){
+  $('uploadProgressBar').style.width = pct + '%';
+  const mbText = $('uploadProgressText').textContent.replace(/\s\d+%$/, '');
+  $('uploadProgressText').textContent = `${mbText} ${pct}%`;
+}
+function hideUploadProgress(){
+  $('uploadProgressWrap').style.display = 'none';
+}
+
+/* ---------- upload (com log de erro detalhado) ---------- */
+let lastUploadError = null;
+
+function uploadRecordToServer(meta, blob, labelBlob, onProgress){
+  return new Promise((resolve)=>{
+    lastUploadError = null;
+    try{
+      const fd = new FormData();
+      fd.append('id', meta.id);
+      fd.append('pkg', meta.pkg);
+      if(meta.serial) fd.append('serial', meta.serial);
+      fd.append('createdAt', String(meta.createdAt));
+      fd.append('durationSec', String(meta.durationSec));
+      fd.append('classification', meta.classification || '');
+      fd.append('severity', meta.severity);
+      fd.append('notes', meta.notes || '');
+      fd.append('protected', meta.protected ? 'true' : 'false');
+      fd.append('retentionDays', String(meta.retentionDays));
+      if(meta.trackingCode) fd.append('trackingCode', meta.trackingCode);
+      if(meta.senderAddress) fd.append('senderAddress', meta.senderAddress);
+      if(meta.recipientAddress) fd.append('recipientAddress', meta.recipientAddress);
+      const videoExt = blob.type && blob.type.includes('mp4') ? 'mp4' : 'webm';
+      fd.append('video', blob, `${meta.id}.${videoExt}`);
+      if(labelBlob) fd.append('label', labelBlob, `${meta.id}_label.jpg`);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', settings.apiBase + '/api/recordings');
+      if(authToken) xhr.setRequestHeader('Authorization', 'Bearer ' + authToken);
+
+      const estSeconds = Math.max(60, Math.ceil(blob.size / (100 * 1024)));
+      xhr.timeout = Math.min(estSeconds, 40 * 60) * 1000;
+
+      const sizeMB = (blob.size / (1024*1024)).toFixed(1);
+
+      xhr.upload.onprogress = (e)=>{
+        if(e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = ()=>{
+        if(xhr.status >= 200 && xhr.status < 300){
+          serverOnline = true; updateServerBadge();
+          try{ resolve(JSON.parse(xhr.responseText)); }
+          catch(e){
+            lastUploadError = { type:'parse', status: xhr.status, message: 'Resposta do servidor não era um JSON válido.' };
+            resolve(null);
+          }
+        }else{
+          serverOnline = false; updateServerBadge();
+          let serverMsg = '';
+          try{ serverMsg = JSON.parse(xhr.responseText).error || ''; }catch(e){}
+          lastUploadError = { type:'http', status: xhr.status, message: serverMsg || xhr.statusText || '' };
+          resolve(null);
+        }
+      };
+      xhr.onerror = ()=>{
+        serverOnline = false; updateServerBadge();
+        lastUploadError = { type:'network', status: 0, message: 'Erro de rede — conexão perdida ou servidor inacessível.' };
+        resolve(null);
+      };
+      xhr.ontimeout = ()=>{
+        serverOnline = false; updateServerBadge();
+        const secs = Math.round(xhr.timeout/1000);
+        lastUploadError = { type:'timeout', status: 0, message: `Tempo limite de ${secs}s excedido para ${sizeMB}MB.` };
+        resolve(null);
+      };
+      xhr.send(fd);
+    }catch(e){
+      lastUploadError = { type:'exception', status: 0, message: e.message || String(e) };
+      resolve(null);
+    }
+  });
+}
+
+async function patchRecord(record, fields){
+  if(record.localOnly){
+    Object.assign(record, fields);
+    await dbPut(record);
+    return record;
+  }
+  try{
+    const res = await apiFetch('/api/recordings/' + record.id, {
+      method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(fields)
+    });
+    if(res.ok){ serverOnline = true; updateServerBadge(); return await res.json(); }
+  }catch(e){ serverOnline = false; updateServerBadge(); }
+  return record;
+}
+
+async function retryUpload(id){
+  const record = await dbGetById(id);
+  if(!record) return;
+  toast('Reenviando vídeo ao servidor…');
+  const serverRecord = await uploadRecordToServer(record, record.blob, record.labelBlob || null);
+  if(serverRecord){
+    await dbDelete(id);
+    toast(`Pacote ${record.pkg} sincronizado com o servidor.`, 'success');
+  }else{
+    toast(`Reenvio falhou (${describeUploadError(lastUploadError)}).`, 'error');
+  }
+  renderDatabase();
+}
+window.retryUpload = retryUpload;
+
+async function retryAllPending(){
+  const online = await checkServerHealth();
+  if(!online){ toast('Servidor ainda indisponível.', 'error'); return; }
+  const local = (await dbGetAll()).filter(r=>r.localOnly);
+  if(local.length === 0){ toast('Nada pendente de reenvio.'); return; }
+  for(const rec of local){ await retryUpload(rec.id); }
+}
+
+function describeUploadError(err){
+  if(!err) return 'motivo desconhecido';
+  switch(err.type){
+    case 'timeout': return `tempo limite excedido — ${err.message}`;
+    case 'network': return 'erro de rede — servidor inacessível';
+    case 'http': return `erro do servidor — HTTP ${err.status}${err.message ? ': ' + err.message : ''}`;
+    case 'parse': return `resposta inválida do servidor — HTTP ${err.status}`;
+    default: return err.message || 'motivo desconhecido';
+  }
+}
+
+/* ---------- classification modal ---------- */
+let selectedCard = null;
+let pendingClassifyRecord = null;
+
+function openClassifyModal(record){
+  pendingClassifyRecord = record;
+  $('classifyPkgLabel').textContent = 'Pacote ' + record.pkg;
+  $('classifyNotes').value = '';
+  selectedCard = null;
+  document.querySelectorAll('.class-card').forEach(c=>c.classList.remove('selected'));
+  updateSevNote(null);
+  $('btnClassifySave').disabled = true;
+  $('classifyOverlay').classList.add('show');
+}
+document.querySelectorAll('.class-card').forEach(card=>{
+  card.addEventListener('click', ()=>{
+    document.querySelectorAll('.class-card').forEach(c=>c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedCard = {label: card.dataset.label, sev: card.dataset.sev};
+    updateSevNote(selectedCard.sev);
+    $('btnClassifySave').disabled = false;
+  });
+});
+function updateSevNote(sev){
+  const el = $('sevNote');
+  el.className = 'sev-note' + (sev ? ' '+sev : '');
+  if(sev === 'ok'){
+    el.textContent = `Retenção padrão: ${settings.retentionDays} dias, exclusão automática ao final do prazo.`;
+  }else if(sev === 'attention'){
+    el.textContent = `Segue a retenção padrão de ${settings.retentionDays} dias.`;
+  }else if(sev === 'critical'){
+    el.textContent = 'Vídeo protegido — fica retido indefinidamente e só um administrador pode excluí-lo.';
+  }else{
+    el.textContent = 'Selecione uma classificação para ver o impacto na retenção do vídeo.';
+  }
+}
+$('btnClassifyLater').addEventListener('click', ()=>{
+  $('classifyOverlay').classList.remove('show');
+  toast('Classificação pendente — disponível no Banco de Vídeos.');
+  pkgInput.focus();
+});
+$('btnClassifySave').addEventListener('click', async ()=>{
+  if(!selectedCard || !pendingClassifyRecord) return;
+  await patchRecord(pendingClassifyRecord, {
+    classification: selectedCard.label,
+    severity: selectedCard.sev,
+    notes: $('classifyNotes').value.trim(),
+    protected: selectedCard.sev === 'critical'
+  });
+  $('classifyOverlay').classList.remove('show');
+  toast('Classificação salva.', 'success');
+  logLine(`Pacote ${pendingClassifyRecord.pkg} classificado como "${selectedCard.label}".`);
+  pkgInput.focus();
+});
+
+/* ---------- database view ---------- */
+function daysLeft(record){
+  if(record.protected) return null;
+  const deadline = record.createdAt + record.retentionDays*24*60*60*1000;
+  return Math.ceil((deadline - nowMs())/(24*60*60*1000));
+}
+
+async function renderDatabase(){
+  const online = await checkServerHealth();
+  let serverRecords = [];
+  if(online){
+    try{
+      const setorParam = (currentUser.tipo === 'ADM' && $('filterSetor').value) ? `?setor=${encodeURIComponent($('filterSetor').value)}` : '';
+      const res = await apiFetch('/api/recordings' + setorParam);
+      if(res.ok){
+        const data = await res.json();
+        serverRecords = data.map(r=>({...r, localOnly:false}));
+      }
+    }catch(e){ serverOnline = false; updateServerBadge(); }
+  }
+  const localRecords = (await dbGetAll()).map(r=>({...r, localOnly:true}));
+  allRecords = [...serverRecords, ...localRecords];
+  allRecords.sort((a,b)=>b.createdAt - a.createdAt);
+
+  if(currentUser.tipo === 'ADM'){
+    $('databaseSubtitle').textContent = 'Histórico de gravações de todos os setores.';
+    populateSetorFilter();
+  }else{
+    $('databaseSubtitle').textContent = `Histórico de gravações do setor ${currentUser.setor}.`;
+  }
+
+  applyFiltersAndRender();
+  renderStats();
+}
+function populateSetorFilter(){
+  const sel = $('filterSetor');
+  const current = sel.value;
+  const setores = Array.from(new Set(allRecords.map(r=>r.setor).filter(Boolean))).sort();
+  sel.innerHTML = '<option value="">Todos os setores</option>' + setores.map(s=>`<option value="${s}">${s}</option>`).join('');
+  sel.value = current;
+}
+
+function renderStats(){
+  const total = allRecords.length;
+  const critical = allRecords.filter(r=>r.severity==='critical').length;
+  const pending = allRecords.filter(r=>r.severity==='pending').length;
+  const localOnly = allRecords.filter(r=>r.localOnly).length;
+  $('statStrip').innerHTML = `
+    <div class="stat"><div class="n">${total}</div><div class="l">Total de vídeos</div></div>
+    <div class="stat"><div class="n" style="color:var(--red)">${critical}</div><div class="l">Críticos / protegidos</div></div>
+    <div class="stat"><div class="n" style="color:var(--amber)">${pending}</div><div class="l">Pendentes de classificação</div></div>
+    <div class="stat"><div class="n" style="color:var(--blue)">${localOnly}</div><div class="l">Apenas locais (não sincronizados)</div></div>
+  `;
+}
+
+function applyFiltersAndRender(){
+  const q = $('searchBox').value.trim().toLowerCase();
+  const sevFilter = $('filterSev').value;
+  const setorFilter = currentUser.tipo === 'ADM' ? $('filterSetor').value : '';
+  let list = allRecords.filter(r=>{
+    if(q){
+      const pkgMatch = r.pkg && r.pkg.toLowerCase().includes(q);
+      const serialMatch = r.serial && r.serial.toLowerCase().includes(q);
+      if(!pkgMatch && !serialMatch) return false;
+    }
+    if(sevFilter && r.severity !== sevFilter) return false;
+    if(setorFilter && r.setor !== setorFilter) return false;
+    return true;
+  });
+
+  const tbody = $('dbTableBody');
+  if(list.length === 0){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Nenhuma gravação encontrada.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(r=>{
+    const dt = new Date(r.createdAt);
+    const dtStr = dt.toLocaleDateString('pt-BR') + ' ' + dt.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    const dur = `${String(Math.floor(r.durationSec/60)).padStart(2,'0')}:${String(r.durationSec%60).padStart(2,'0')}`;
+    const sevBadge = sevBadgeHtml(r);
+    const syncBadge = r.localOnly
+      ? `<span class="badge attention">Somente local</span>`
+      : `<span class="badge ok">No servidor</span>`;
+    const dLeft = daysLeft(r);
+    let retentionHtml;
+    if(r.protected){
+      retentionHtml = `<span class="retention-txt protected">Protegido — requer Admin</span>`;
+    }else if(dLeft === null){
+      retentionHtml = `<span class="retention-txt">—</span>`;
+    }else{
+      const cls = dLeft <= 7 ? 'soon' : '';
+      retentionHtml = `<span class="retention-txt ${cls}">${dLeft > 0 ? dLeft + ' dias restantes' : 'Expirado'}</span>`;
+    }
+
+    return `
+      <tr>
+        <td class="mono">${escapeHtml(r.pkg)}</td>
+        <td class="mono">${escapeHtml(r.setor || '—')}</td>
+        <td class="mono">${dtStr}</td>
+        <td class="mono">${dur}</td>
+        <td>${sevBadge}</td>
+        <td>${syncBadge}</td>
+        <td>${retentionHtml}</td>
+        <td class="actions-cell">
+          <button class="btn-ghost btn-sm" onclick="playRecord('${r.id}')">Reproduzir</button>
+          <button class="btn-ghost btn-sm" onclick="downloadRecord('${r.id}')">Baixar</button>
+          ${r.localOnly ? `<button class="btn-ghost btn-sm" onclick="retryUpload('${r.id}')">Reenviar</button>` : ''}
+          ${currentUser.tipo === 'ADM' ? `<button class="btn-ghost btn-sm" onclick="deleteRecord('${r.id}')">Excluir</button>` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+function sevBadgeHtml(r){
+  if(!r.classification) return `<span class="badge pending">Pendente</span>`;
+  const map = {ok:'ok', attention:'attention', critical:'critical'};
+  return `<span class="badge ${map[r.severity]||'pending'}">${escapeHtml(r.classification)}</span>`;
+}
+function escapeHtml(s){
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+
+$('searchBox').addEventListener('input', applyFiltersAndRender);
+$('filterSev').addEventListener('change', applyFiltersAndRender);
+$('filterSetor').addEventListener('change', applyFiltersAndRender);
+$('btnRefresh').addEventListener('click', renderDatabase);
+
+window.playRecord = async (id)=>{
+  const rec = allRecords.find(r=>r.id===id);
+  if(!rec) return;
+  const url = rec.localOnly ? URL.createObjectURL(rec.blob) : (settings.apiBase + rec.videoUrl);
+  $('playerVideo').src = url;
+  $('playerTitle').textContent = 'Pacote ' + rec.pkg;
+  const dt = new Date(rec.createdAt);
+  $('playerMeta').innerHTML = `
+    Gravado em: ${dt.toLocaleString('pt-BR')}<br>
+    Setor: ${rec.setor || '—'}<br>
+    Classificação: ${rec.classification || 'Pendente'}<br>
+    Serial: ${rec.serial || '—'}<br>
+    Observações: ${rec.notes || '—'}
+  `;
+  $('playerOverlay').classList.add('show');
+};
+$('btnClosePlayer').addEventListener('click', ()=>{
+  $('playerOverlay').classList.remove('show');
+  $('playerVideo').pause();
+  $('playerVideo').src = '';
+});
+
+window.downloadRecord = (id)=>{
+  const rec = allRecords.find(r=>r.id===id);
+  if(!rec) return;
+  const dLeft = daysLeft(rec);
+  const doDownload = ()=>{
+    if(rec.localOnly){
+      const url = URL.createObjectURL(rec.blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${rec.pkg}_${rec.id}.webm`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }else{
+      const a = document.createElement('a');
+      a.href = settings.apiBase + rec.videoUrl; a.download = `${rec.pkg}_${rec.id}.webm`; a.target = '_blank';
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+  };
+  if(rec.protected || dLeft === null){ doDownload(); return; }
+  showConfirm({
+    title:'Vídeo solicitado para download',
+    body:`Você solicitou este vídeo. Ele não está marcado como prioridade e será excluído automaticamente em ${dLeft > 0 ? dLeft : 0} dia(s). Deseja marcá-lo como prioridade para evitar a exclusão?`,
+    actions:[
+      {label:'Apenas baixar', className:'btn-ghost', onClick: doDownload},
+      {label:'Proteger e baixar', className:'btn-primary', onClick: async ()=>{
+        await patchRecord(rec, {protected: true});
+        toast('Vídeo marcado como prioridade — exclusão automática desativada.', 'success');
+        renderDatabase();
+        doDownload();
+      }}
+    ]
+  });
+};
+
+async function performDelete(rec){
+  if(rec.localOnly){ await dbDelete(rec.id); return true; }
+  try{
+    const res = await apiFetch('/api/recordings/' + rec.id, {method:'DELETE'});
+    if(res.ok) return true;
+    if(res.status === 403){
+      const data = await res.json().catch(()=>({}));
+      toast(data.error || 'Servidor recusou a exclusão.', 'error');
+      return false;
+    }
+    toast('Falha ao excluir no servidor.', 'error');
+    return false;
+  }catch(e){
+    toast('Não foi possível contatar o servidor para excluir.', 'error');
+    return false;
+  }
+}
+
+window.deleteRecord = (id)=>{
+  const rec = allRecords.find(r=>r.id===id);
+  if(!rec) return;
+  if(rec.protected && !(currentUser.tipo === 'ADM' && settings.adminMode)){
+    showConfirm({
+      title:'Exclusão bloqueada',
+      body: currentUser.tipo === 'ADM'
+        ? 'Este vídeo está protegido. Ative o "Modo Administrador" em Configurações para poder excluí-lo.'
+        : 'Este vídeo está protegido (crítico ou marcado como prioridade). Apenas um administrador pode excluí-lo.',
+      actions:[{label:'Entendi', className:'btn-primary'}]
+    });
+    return;
+  }
+  if(rec.protected){
+    showConfirm({
+      title:'Confirmação de administrador',
+      body:`O pacote ${rec.pkg} está marcado como "${rec.classification || 'protegido'}". Excluir remove permanentemente a evidência. Confirmar?`,
+      actions:[
+        {label:'Cancelar', className:'btn-ghost'},
+        {label:'Excluir definitivamente', className:'btn-danger', onClick: async ()=>{
+          const ok = await performDelete(rec);
+          if(ok){ toast('Vídeo excluído por administrador.', 'success'); renderDatabase(); }
+        }}
+      ]
+    });
+    return;
+  }
+  showConfirm({
+    title:'Excluir vídeo?',
+    body:`O registro do pacote ${rec.pkg} será removido permanentemente.`,
+    actions:[
+      {label:'Cancelar', className:'btn-ghost'},
+      {label:'Excluir', className:'btn-danger', onClick: async ()=>{
+        const ok = await performDelete(rec);
+        if(ok){ toast('Vídeo excluído.'); renderDatabase(); }
+      }}
+    ]
+  });
+};
+
+/* ---------- users view (ADM) ---------- */
+async function renderUsers(){
+  if(currentUser.tipo !== 'ADM') return;
+  const tbody = $('usersTableBody');
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Carregando…</td></tr>';
+  try{
+    const res = await apiFetch('/api/users');
+    if(!res.ok){ tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Falha ao carregar usuários.</td></tr>'; return; }
+    const users = await res.json();
+    if(users.length === 0){ tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Nenhum usuário.</td></tr>'; return; }
+    tbody.innerHTML = users.map(u=>`
+      <tr>
+        <td class="mono">${escapeHtml(u.id)}</td>
+        <td>${escapeHtml(u.nome)}</td>
+        <td class="mono">${escapeHtml(u.setor)}</td>
+        <td><span class="badge ${u.tipo==='ADM'?'critical':'pending'}">${u.tipo}</span></td>
+        <td class="actions-cell">
+          ${u.id !== currentUser.id ? `<button class="btn-ghost btn-sm" onclick="deleteUser('${u.id}')">Excluir</button>` : '<span class="hint" style="margin:0;">você</span>'}
+        </td>
+      </tr>
+    `).join('');
+  }catch(e){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Erro ao carregar usuários.</td></tr>';
+  }
+}
+
+$('btnCreateUser').addEventListener('click', async ()=>{
+  const id = $('newUserId').value.trim();
+  const nome = $('newUserNome').value.trim();
+  const setor = $('newUserSetor').value.trim();
+  const tipo = $('newUserTipo').value;
+  const senha = $('newUserSenha').value;
+  if(!id || !nome || !setor || !senha){ toast('Preencha todos os campos.', 'error'); return; }
+  try{
+    const res = await apiFetch('/api/users', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({id, nome, setor, tipo, senha})
+    });
+    const data = await res.json();
+    if(!res.ok){ toast(data.error || 'Falha ao criar usuário.', 'error'); return; }
+    toast(`Usuário "${nome}" criado.`, 'success');
+    $('newUserId').value = ''; $('newUserNome').value = ''; $('newUserSetor').value = ''; $('newUserSenha').value = '';
+    renderUsers();
+  }catch(e){
+    toast('Não foi possível contatar o servidor.', 'error');
+  }
+});
+
+window.deleteUser = (id)=>{
+  showConfirm({
+    title:'Excluir usuário?',
+    body:`O usuário "${id}" perderá o acesso imediatamente. Os vídeos que ele já gravou não são afetados.`,
+    actions:[
+      {label:'Cancelar', className:'btn-ghost'},
+      {label:'Excluir', className:'btn-danger', onClick: async ()=>{
+        try{
+          const res = await apiFetch('/api/users/' + id, {method:'DELETE'});
+          const data = await res.json().catch(()=>({}));
+          if(!res.ok){ toast(data.error || 'Falha ao excluir usuário.', 'error'); return; }
+          toast('Usuário excluído.', 'success');
+          renderUsers();
+        }catch(e){ toast('Não foi possível contatar o servidor.', 'error'); }
+      }}
+    ]
+  });
+};
+
+/* ---------- settings wiring ---------- */
+$('retentionDays').addEventListener('change', (e)=>{
+  settings.retentionDays = Math.max(1, parseInt(e.target.value)||90);
+  toast(`Prazo de retenção padrão atualizado para ${settings.retentionDays} dias.`);
+});
+$('soundAlertToggle').addEventListener('change', (e)=>{ settings.soundAlert = e.target.checked; });
+$('adminToggle').addEventListener('change', (e)=>{
+  settings.adminMode = e.target.checked;
+  toast(settings.adminMode ? 'Modo Administrador ativado.' : 'Modo Administrador desativado.');
+});
+$('simFailToggle').addEventListener('change', (e)=>{ settings.simulateFailNext = e.target.checked; });
+$('apiBaseInput').addEventListener('change', (e)=>{
+  settings.apiBase = e.target.value.trim().replace(/\/$/,'');
+  checkServerHealth();
+});
+$('btnReconnect').addEventListener('click', async ()=>{
+  const ok = await checkServerHealth();
+  toast(ok ? 'Conectado ao servidor.' : 'Servidor ainda indisponível.', ok ? 'success' : 'error');
+  renderDatabase();
+});
+$('btnRetryAll').addEventListener('click', retryAllPending);
+
+/* ---------- boot ---------- */
+async function bootAfterLogin(){
+  await openDB();
+  await refreshCameraList();
+  await checkServerHealth();
+  logLine(`Bem-vindo(a), ${currentUser.nome}.`);
+}
+
+(async function init(){
+  const storedUser = localStorage.getItem('packguard_user');
+  if(authToken && storedUser){
+    try{
+      currentUser = JSON.parse(storedUser);
+      const res = await apiFetch('/api/me');
+      if(res.ok){
+        currentUser = await res.json();
+        showAppShell();
+        return;
+      }
+    }catch(e){ /* cai para tela de login abaixo */ }
+  }
+  clearSession();
+  showLoginScreen();
+})();
+</script>
+</body>
+</html>
