@@ -720,6 +720,7 @@ let allRecords = [];
 let scanMode = false;
 let scanLoopTimeout = null;
 let bcDetector = null;
+let ocrWorker = null; // worker do Tesseract, criado uma vez e reaproveitado entre leituras
 const scanCropCanvas = document.createElement('canvas');
 const scanCropCtx = scanCropCanvas.getContext('2d');
 // Dados de uma gravação iniciada por leitura de código de barras, aguardando
@@ -1249,54 +1250,179 @@ async function runScanLoop(){
   if(scanMode) scanLoopTimeout = setTimeout(runScanLoop, 220);
 }
 
-function captureLabelPhoto(){
+// Tira um snapshot da etiqueta a partir do frame atual da câmera. Usado tanto
+// pra gerar a foto que vai anexada à gravação (sem tratamento, pra conferência
+// humana) quanto como fonte pro OCR (que recebe uma cópia tratada à parte).
+function snapshotLabelCanvas(){
+  try{
+    const c = document.createElement('canvas');
+    c.width = overlayCanvas.width;
+    c.height = overlayCanvas.height;
+    c.getContext('2d').drawImage(overlayCanvas, 0, 0);
+    return c;
+  }catch(e){ return null; }
+}
+
+function canvasToJpegBlob(canvas, quality){
   return new Promise(resolve=>{
-    try{
-      const c = document.createElement('canvas');
-      c.width = overlayCanvas.width;
-      c.height = overlayCanvas.height;
-      c.getContext('2d').drawImage(overlayCanvas, 0, 0);
-      c.toBlob(blob=>resolve(blob || null), 'image/jpeg', 0.85);
-    }catch(e){ resolve(null); }
+    if(!canvas){ resolve(null); return; }
+    try{ canvas.toBlob(blob=>resolve(blob || null), 'image/jpeg', quality); }
+    catch(e){ resolve(null); }
   });
 }
 
-/* Heurística simples pra separar remetente/destinatário do texto bruto do
-   OCR — é um bônus pontual (uma foto, um reconhecimento só), não uma leitura
-   estruturada de etiqueta; se não achar nada reconhecível, apenas não
-   preenche esses campos (não bloqueia a gravação). */
-function parseLabelText(text){
-  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  const labelRe = /remetente|destinat[aá]rio|sender|recipient|^de:|^para:/i;
-  const senderIdx = lines.findIndex(l=>/remetente|sender|^de:/i.test(l));
-  const recipIdx = lines.findIndex(l=>/destinat[aá]rio|recipient|^para:/i.test(l));
-  function collectBlock(startIdx){
-    if(startIdx === -1) return null;
-    const block = [];
-    for(let i=startIdx+1; i<lines.length && block.length<4; i++){
-      if(labelRe.test(lines[i])) break;
-      block.push(lines[i]);
+// Escala de cinza + reforço de contraste — melhora bastante a leitura do
+// Tesseract em foto de celular (fundo com reflexo/sombra, texto pequeno),
+// sem afetar a foto original que é a que fica salva/enviada.
+function preprocessForOcr(canvas){
+  try{
+    const ctx = canvas.getContext('2d');
+    const { width: w, height: h } = canvas;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    for(let i=0; i<d.length; i+=4){
+      const gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      const boosted = Math.min(255, Math.max(0, (gray - 128) * 1.35 + 128));
+      d[i] = d[i+1] = d[i+2] = boosted;
     }
-    return block.length ? block.join(', ') : null;
+    ctx.putImageData(imgData, 0, 0);
+  }catch(e){ /* pré-processamento é só reforço — segue com a imagem original se falhar */ }
+}
+
+/* ------------------- Leitura estruturada de etiqueta dos Correios -------------------
+   As etiquetas dos Correios (inclusive Sedex Reverso) seguem um layout bem
+   consistente: um bloco "DESTINATÁRIO" e um bloco "REMETENTE", cada um com
+   nome, endereço (com número), às vezes um complemento/referência, e por
+   fim CEP + cidade/UF numa mesma linha. Em vez de só juntar linhas soltas,
+   isolamos cada bloco pelo cabeçalho e extraímos os campos um por um —
+   qualquer linha que sobrar (referência, ponto próximo etc.) vira
+   "complemento" em vez de ser descartada. */
+
+function normalizeOcrLine(l){
+  return l.replace(/\s+/g, ' ').trim();
+}
+
+// "55175-000 FAZENDA NOVA /PE" -> {cep:'55175-000', cidade:'FAZENDA NOVA', uf:'PE'}
+function extractCepCityUf(line){
+  const m = line.match(/(\d{5})\s*-?\s*(\d{3})\s*(.*)$/);
+  if(!m) return null;
+  const cep = `${m[1]}-${m[2]}`;
+  const rest = m[3].trim();
+  let cidade = rest || null;
+  let uf = null;
+  const ufMatch = rest.match(/^(.*?)\s*\/\s*([A-Za-z]{2})\s*$/);
+  if(ufMatch){
+    cidade = ufMatch[1].trim() || null;
+    uf = ufMatch[2].toUpperCase();
   }
-  const trackMatch = text.match(/\b[A-Z]{2}\d{8,9}[A-Z]{0,2}\b|\b\d{10,20}\b/);
+  return { cep, cidade, uf };
+}
+
+// "R MANOEL ALVES VALENTIM, 112" -> {endereco:'R MANOEL ALVES VALENTIM', numero:'112'}
+// (também cobre "Avenida Marginal Projetada 1810," — vírgula sobra depois
+// do número quando o endereço continua na linha seguinte, ex: complemento)
+function splitEnderecoNumero(line){
+  const clean = line.replace(/[,;]+\s*$/, '').trim();
+  const m = clean.match(/^(.*\S)[,\s]+(?:N[ºO°]?\.?\s*)?(\d{1,6})\s*$/i);
+  if(m) return { endereco: m[1].replace(/,\s*$/, '').trim(), numero: m[2] };
+  return { endereco: clean, numero: null };
+}
+
+// Lê um bloco (remetente OU destinatário) a partir da linha de cabeçalho.
+function parseLabelBlock(lines, headerIdx, headerRe){
+  const headerLine = lines[headerIdx];
+  const inlineMatch = headerLine.match(/(?:remetente|destinat[aá]rio)\s*:?\s*(.+)/i);
+  let cursor = headerIdx + 1;
+  let nome = inlineMatch && inlineMatch[1].trim() ? inlineMatch[1].trim() : null;
+  if(!nome && cursor < lines.length && !headerRe.test(lines[cursor])){
+    nome = lines[cursor];
+    cursor++;
+  }
+  let enderecoLine = null;
+  let cepInfo = null;
+  const extraLines = [];
+  while(cursor < lines.length){
+    const line = lines[cursor];
+    if(headerRe.test(line)) break;
+    const cep = extractCepCityUf(line);
+    if(cep){ cepInfo = cep; cursor++; break; }
+    if(!enderecoLine) enderecoLine = line;
+    else extraLines.push(line);
+    cursor++;
+  }
+  const { endereco, numero } = enderecoLine ? splitEnderecoNumero(enderecoLine) : { endereco: null, numero: null };
+  const pessoa = {
+    nome: nome || null,
+    endereco: endereco || null,
+    numero: numero || null,
+    complemento: extraLines.length ? extraLines.join(' — ') : null,
+    cep: cepInfo ? cepInfo.cep : null,
+    cidade: cepInfo ? cepInfo.cidade : null,
+    uf: cepInfo ? cepInfo.uf : null
+  };
+  // Se não achou nem nome nem CEP, o bloco não é confiável o bastante —
+  // melhor deixar em branco do que preencher com lixo do OCR.
+  return (pessoa.nome || pessoa.cep) ? pessoa : null;
+}
+
+function parseCorreiosLabel(text){
+  const lines = text.split(/\r?\n/).map(normalizeOcrLine).filter(Boolean);
+  const headerRe = /^(remetente|destinat[aá]rio)\b/i;
+  const remIdx = lines.findIndex(l => /^remetente\b/i.test(l));
+  const destIdx = lines.findIndex(l => /^destinat[aá]rio\b/i.test(l));
+  const trackMatch = text.match(/\b[A-Z]{2}\s?\d{3}\s?\d{3}\s?\d{3}\s?[A-Z]{2}\b/) || text.match(/\b\d{10,20}\b/);
   return {
-    trackingCode: trackMatch ? trackMatch[0] : null,
-    senderAddress: collectBlock(senderIdx),
-    recipientAddress: collectBlock(recipIdx)
+    trackingCode: trackMatch ? trackMatch[0].replace(/\s+/g, '') : null,
+    remetente: remIdx !== -1 ? parseLabelBlock(lines, remIdx, headerRe) : null,
+    destinatario: destIdx !== -1 ? parseLabelBlock(lines, destIdx, headerRe) : null,
+    rawText: text
   };
 }
 
-async function runLabelOcr(blob){
+// Formata os campos estruturados de uma pessoa (remetente/destinatário) numa
+// única string legível — é o que vai pros campos senderAddress/
+// recipientAddress hoje (texto livre no banco). Nada impede migrar pra
+// colunas separadas depois se precisar filtrar/buscar por CEP etc.
+function formatPessoa(p){
+  if(!p) return null;
+  const partes = [];
+  if(p.nome) partes.push(p.nome);
+  let linhaEndereco = p.endereco || '';
+  if(p.numero) linhaEndereco += (linhaEndereco ? ', nº ' : 'nº ') + p.numero;
+  if(linhaEndereco) partes.push(linhaEndereco);
+  if(p.complemento) partes.push(p.complemento);
+  let linhaCep = p.cep ? `CEP ${p.cep}` : '';
+  if(p.cidade) linhaCep += (linhaCep ? ' — ' : '') + p.cidade + (p.uf ? '/' + p.uf : '');
+  else if(p.uf) linhaCep += (linhaCep ? ' — ' : '') + p.uf;
+  if(linhaCep) partes.push(linhaCep);
+  return partes.length ? partes.join(' | ') : null;
+}
+
+async function getOcrWorker(){
+  if(ocrWorker) return ocrWorker;
+  if(!window.Tesseract){
+    const ok = await waitForGlobal('Tesseract', 4000);
+    if(!ok) return null;
+  }
+  try{ ocrWorker = await window.Tesseract.createWorker('por'); }
+  catch(e){ ocrWorker = null; }
+  return ocrWorker;
+}
+
+async function runLabelOcr(sourceCanvas){
+  if(!sourceCanvas) return null;
   try{
-    if(!window.Tesseract){
-      const ok = await waitForGlobal('Tesseract', 4000);
-      if(!ok) return null;
-    }
-    const { data } = await window.Tesseract.recognize(blob, 'por');
+    const worker = await getOcrWorker();
+    if(!worker) return null;
+    const ocrCanvas = document.createElement('canvas');
+    ocrCanvas.width = sourceCanvas.width;
+    ocrCanvas.height = sourceCanvas.height;
+    ocrCanvas.getContext('2d').drawImage(sourceCanvas, 0, 0);
+    preprocessForOcr(ocrCanvas);
+    const { data } = await worker.recognize(ocrCanvas);
     const text = (data && data.text || '').trim();
     if(!text) return null;
-    return parseLabelText(text);
+    return parseCorreiosLabel(text);
   }catch(e){
     console.warn('[OCR] falhou:', e);
     return null;
@@ -1312,16 +1438,23 @@ async function onBarcodeDetected(rawValue){
   logLine(`Código de barras lido: ${pkg}`);
   pkgInput.value = pkg;
 
-  const labelBlob = await captureLabelPhoto();
-  const ocrPromise = labelBlob ? runLabelOcr(labelBlob) : Promise.resolve(null);
+  // Um snapshot só: vira a foto anexada (sem tratamento) e a fonte do OCR
+  // (que recebe uma cópia tratada à parte) — evita capturar dois frames
+  // ligeiramente diferentes se a câmera balançar entre uma chamada e outra.
+  const labelCanvas = snapshotLabelCanvas();
+  const labelBlob = await canvasToJpegBlob(labelCanvas, 0.9);
+  const ocrPromise = labelCanvas ? runLabelOcr(labelCanvas) : Promise.resolve(null);
   pendingScan = { pkg, labelBlob, ocrPromise };
-  if(labelBlob){
+  if(labelCanvas){
     scanOcrNote.textContent = 'Lendo remetente/destinatário da etiqueta…';
     scanOcrNote.classList.add('show');
     ocrPromise.then(res=>{
       if(pendingScan && pendingScan.pkg === pkg){
-        scanOcrNote.textContent = res ? 'Dados da etiqueta capturados.' : 'Não foi possível ler dados adicionais da etiqueta (não crítico).';
-        setTimeout(()=>scanOcrNote.classList.remove('show'), 3000);
+        const p = res && res.remetente;
+        scanOcrNote.textContent = p
+          ? `Remetente: ${p.nome || '?'} — ${p.endereco || ''}${p.numero ? ', nº ' + p.numero : ''} — CEP ${p.cep || '?'}`
+          : 'Não foi possível ler dados adicionais da etiqueta (não crítico).';
+        setTimeout(()=>scanOcrNote.classList.remove('show'), 4500);
       }
     });
   }
@@ -1523,8 +1656,8 @@ async function onRecorderStop(){
     protected: interrupted,
     retentionDays: settings.retentionDays,
     trackingCode: (scanData && scanData.trackingCode) || null,
-    senderAddress: (scanData && scanData.senderAddress) || null,
-    recipientAddress: (scanData && scanData.recipientAddress) || null
+    senderAddress: formatPessoa(scanData && scanData.remetente),
+    recipientAddress: formatPessoa(scanData && scanData.destinatario)
   };
 
   const forceFail = settings.simulateFailNext;
